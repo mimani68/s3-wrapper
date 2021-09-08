@@ -1,0 +1,67 @@
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  # from https://storage.googleapis.com/kubernetes-release/release/stable.txt
+  K8S_STABLE_VERSION_URL: https://storage.googleapis.com/kubernetes-release/release/v1.10.4/bin/linux/amd64/kubectl
+  REGISTERY_BASE_URL: registry.exanple.com
+  APPLICATION_NAME: server
+  DOCKER_HOST: tcp://localhost:2375
+  DOCKER_TLS_CERTDIR: ""
+
+before_script:
+  - touch /etc/docker/daemon.json
+  - echo { "insecure-registries":["registry.exanple.com"] } > /etc/docker/daemon.json
+  - docker info
+
+build:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - export DOCKER_VERSION=$(echo "$CI_BUILD_REF" | cut -c 1-6)
+    - docker build -t $REGISTERY_BASE_URL/$APPLICATION_NAME:$DOCKER_VERSION .
+    # - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
+    - docker push $REGISTERY_BASE_URL/$APPLICATION_NAME:$DOCKER_VERSION
+  tags:
+    - "cicd"
+
+test:
+  stage: test
+  script:
+    - exit 0
+  dependencies:
+    - build
+  tags:
+    - "cicd"
+
+staging release:
+  stage: deploy
+  environment:
+    name: Dev
+  image: alpine
+  before_script:
+    - apk add --no-cache curl
+    - curl -LO $K8S_STABLE_VERSION_URL
+    - chmod +x ./kubectl
+    - mv ./kubectl /usr/local/bin/kubectl
+    - mkdir ~/.kube
+    - cp $KUBECONFIG ~/.kube/config
+    - cat ~/.kube/config
+    - kubectl cluster-info
+  script:
+    - echo "kubectl apply -f deployments.yaml -f service.yaml"
+    - exit 0
+  dependencies:
+    - test
+  tags:
+    - "cicd"
+  when: manual
+  only:
+    - branches
+  except:
+    - master
+    - tags

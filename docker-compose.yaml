@@ -1,0 +1,186 @@
+version: "3.7"
+
+networks:
+    internal:
+    web:
+
+services:
+
+    proxy:
+        image: traefik:2.4
+        command:
+            # - "--log.level=DEBUG"
+            - "--api=true"
+            - "--api.dashboard=true"
+            - "--api.insecure=true"
+            - "--providers.docker"
+            - "--entrypoints.web.address=:80"
+            # - "--entryPoints.websecure.address=:443"
+            # - "--certificatesResolvers.dappi.acme.httpchallenge=true"
+            # - "--certificatesresolvers.dappi.acme.httpchallenge.entrypoint=web"
+            # - "--certificatesresolvers.dappi.acme.email=sample@localhost.ir"
+            # - "--certificatesresolvers.dappi.acme.storage=/letsencrypt/acme.json"
+        volumes:
+            - type: bind
+              source: /var/run/docker.sock
+              target: /var/run/docker.sock
+              read_only: true
+        ports:
+            - target: 80
+              published: 80
+              protocol: tcp
+              mode: host
+            - target: 8080
+              published: 8080
+              protocol: tcp
+              mode: host
+            - target: 443
+              published: 443
+              protocol: tcp
+              mode: host
+        networks:
+            - internal
+            - web
+    
+    app:
+        build: 
+            context: .
+            target: development
+        restart: always
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.app.rule=Host(`share.dappi.ir`)"
+            - "traefik.http.routers.app.entrypoints=web"
+            # - "traefik.http.routers.app.entrypoints=websecure"
+            # - "traefik.http.routers.app.tls.certresolver=app"
+            - "traefik.http.services.app.loadbalancer.server.port=3000"
+        working_dir: /app
+        environment:
+            PORT: 3000
+            NODE_ENV: development
+            SECRET: AIsAYZ9r4Lf4u7vSAEa9RTzKmaukCaBrmU62eewUR9cYCCpbkrJRtcfSm8H4T8aN
+            APP_PREFIX: "/api/v1"
+            AUTH_METHOD: redis  # public/jwt/redis
+            # ----
+            MAIN_BUCKET_TITLE: "general"
+            DELIVERY_BASE_URL: "http://share.dappi.ir/api/v1/file"
+            VALID_FORMATS: "image/jpeg,image/jpg,image/png,image/gif,video/mp4,audio/mpeg,application/pdf"
+            THUMBNAIL_IMAGE_QUILITY: 80
+            THUMBNAIL_WIDTH: 300
+            # ----
+            SENTRY_ENABLE: "false"
+            SENTRY_URL: ""
+            # ----
+            APM_ENABLE: "false"
+            APM_SERVICE_NAME: ""
+            APM_SECRET_TOKEN: ""
+            APM_API_KEY: ""
+            APM_SERVICE_URL: ""
+            # ----
+            SWAGGER_ENABLE: "false"
+            SWAGGER_PATH: "docs"
+            # ----
+            SLACK_ENABLE: "false"
+            SLACK_SIGNING_SECRET: ""
+            SLACK_BOT_TOKEN: ""
+            SLACK_BOT_PORT: 3014
+            # ----
+            MINIO_ENABLE: "true"
+            MINIO_HAS_SSL: "false"
+            MINIO_PORT: 9000
+            MINIO_BASE_URL: "http://s3.example.com/"
+            MINIO_ENDPOINT: minio
+            MINIO_ACCESS_KEY: eiYuu4veEphieHie8eupPoyahnuesh3cae9shaJ6ohzei1uzoh
+            MINIO_SECRET_KEY: gei3bKoGheex5oyeehicai6quahkieghoo6liehai7ePhaegh6
+            # ----
+            # DB_TYPE: postgres
+            # DB_NAME: app
+            # DB_HOST: db
+            # DB_PORT: 5432
+            # DB_USERNAME: user
+            # DB_PASSWORD: test
+        ports:
+            - "9229:9229"
+        volumes:
+            - ./:/app
+        networks:
+            - internal
+        # 
+        # run service directly
+        # ----------------------------------------------
+        # command: ["npm", "run", "start:debug"]
+        # command: ["node", "--inspect=0.0.0.0", "dist/main.js"]
+        # 
+        # profiling with clinic.js
+        # ----------------------------------------------
+        # command: 
+        #     - npm install -g clinic
+        #     - clinic doctor -- node dist/main.js
+        # 
+        # direct profiling
+        # ----------------------------------------------
+        # command: ["node", "--inspect", "dist/main.js"]
+        #
+        # nest development commands
+        # ----------------------------------------------
+        command: [ "npx", "nest", "start", "--debug", "0.0.0.0:9229", "--watch" ]
+        # command: ["node", "--prof-process", "dist/main.js"]
+        # command: ["node", "--prof", "dist/main.js"]
+
+    minio:
+        image: ${MINIO_IMAGE}
+        environment:
+            MINIO_ACCESS_KEY: eiYuu4veEphieHie8eupPoyahnuesh3cae9shaJ6ohzei1uzoh
+            MINIO_SECRET_KEY: gei3bKoGheex5oyeehicai6quahkieghoo6liehai7ePhaegh6
+        # volumes:
+        #     - minio_data:/data
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.minio.rule=Host(`minio.dappi.ir`)"
+            - "traefik.http.services.minio.loadbalancer.server.port=9000"
+            - "traefik.http.routers.minio.entrypoints=web"
+        command: server /data
+        networks:
+            - internal
+
+    # db:
+    #     image: $POSTGRES_IMAGE
+    #     restart: always
+    #     environment:
+    #         POSTGRES_DB: app
+    #         POSTGRES_USER: user
+    #         POSTGRES_PASSWORD: test
+    #         # ALLOW_IP_RANGE: 0.0.0.0/0
+    #         # PGHOST: db
+    #         # PGDATABASE: postgres
+    #         # PGUSER: postgres
+    #     healthcheck:
+    #         test: ["CMD-SHELL", "pg_isready -U postgres"]
+    #         interval: 10s
+    #         timeout: 5s
+    #         retries: 5
+    #     volumes:
+    #         - postgres-data:/var/lib/postgresql/data
+    #     networks:
+    #         - internal
+
+    # adminer:
+    #     image: ${ADMINER_IMAGE}
+    #     restart: always
+    #     labels:
+    #         - "traefik.enable=true"
+    #         - "traefik.http.routers.storage.rule=Host(`db.localhost`) && PathPrefix(`/adminer`)"
+    #         - "traefik.http.services.storage.loadbalancer.server.port=8080"
+    #         - "traefik.http.routers.storage.entrypoints=web"
+    #     networks:
+    #         - internal
+
+    redis:
+        image: bitnami/redis:6.0-debian-10
+        environment: 
+            - REDIS_PASSWORD=bnf9cU34naC9
+        networks:
+            - internal
+
+volumes:
+    postgres-data:

@@ -1,0 +1,108 @@
+#!/usr/bin/make -f
+
+PROJECT = "Test"
+
+DOCKER_COMPOSE_FILE=docker-compose.yaml
+NAMESPACE=file
+
+BUCKET_TITLE=blk
+LOCAL_SERVER_ADDRESS=api.localhost/api/v1
+# IMAGE_PATH=/home/dev/drive_one/projects/dappi/core/public/
+IMAGE_PATH=/root/storage-wrapper-service/public/
+IMAGE_NAME=poster.png
+
+Black=\033[0;30m
+Red=\033[0;31m
+Green=\033[0;32m
+Yellow=\033[0;33m
+Blue=\033[0;34m
+Purple=\033[0;35m
+Cyan=\033[0;36m
+White=\033[0;37m
+NC=\033[0m
+
+all: download download_stream
+
+download:
+	@echo "${Yellow}======== TEST DOWNLOAD ========${NC}"
+	http --print=h ${LOCAL_SERVER_ADDRESS}/file/${BUCKET_TITLE}/${IMAGE}
+	@echo "${Yellow}======== END ========${NC}"
+
+download_stream:
+	@echo "${Yellow}======== TEST DOWNLOAD ========${NC}"
+	http --print=h ${LOCAL_SERVER_ADDRESS}/file/${BUCKET_TITLE}/${IMAGE}
+	@echo "${Yellow}======== END ========${NC}"
+
+stat_file:
+	@echo "${Yellow}======== TEST STATISTIC ========${NC}"
+	http ${LOCAL_SERVER_ADDRESS}/file/stat/${BUCKET_TITLE}/${IMAGE}
+	@echo "${Yellow}======== END ========${NC}"
+
+stat_bucket:
+	@echo "${Yellow}======== TEST STATISTIC ========${NC}"
+	http ${LOCAL_SERVER_ADDRESS}/file/bucket/stat/${BUCKET}
+	@echo "${Yellow}======== END ========${NC}"
+
+stat_bucket_exclude:
+	@echo "${Yellow}======== TEST STATISTIC ========${NC}"
+	http ${LOCAL_SERVER_ADDRESS}/file/bucket/stat/${BUCKET} exclude==${EXCLUDE_PATH}
+	@echo "${Yellow}======== END ========${NC}"
+
+upload:
+	@echo "${Yellow}======== TEST UPLOAD ========${NC}"
+	http -f POST ${LOCAL_SERVER_ADDRESS}/file bucket=${BUCKET_TITLE} file@'${IMAGE_PATH}${IMAGE_NAME}'
+	@echo "${Yellow}======== END ========${NC}"
+
+upload_nested:
+	@echo "${Yellow}======== TEST UPLOAD ========${NC}"
+	@echo "path ${Red}app/public/${NC} must created under main bucket before"
+	@sleep 2
+	http -f POST ${LOCAL_SERVER_ADDRESS}/file bucket=${BUCKET_TITLE} path=app/public/ file@'${IMAGE_PATH}${IMAGE_NAME}' 
+	@echo "${Yellow}======== END ========${NC}"
+
+upload_convert:
+	@echo "${Yellow}======== TEST UPLOAD ========${NC}"
+	http -f POST ${LOCAL_SERVER_ADDRESS}/file bucket=${BUCKET_TITLE} file@'${IMAGE_PATH}${IMAGE_NAME}' format==jpg
+	@echo "${Yellow}======== END ========${NC}"
+
+upload_resize:
+	@echo "${Yellow}======== TEST UPLOAD ========${NC}"
+	http -f POST ${LOCAL_SERVER_ADDRESS}/file bucket=${BUCKET_TITLE} file@'${IMAGE_PATH}${IMAGE_NAME}' operation==resize width==150
+	@echo "${Yellow}======== END ========${NC}"
+
+upload_rotate:
+	@echo "${Yellow}======== TEST UPLOAD ========${NC}"
+	http -f POST ${LOCAL_SERVER_ADDRESS}/file bucket=${BUCKET_TITLE} file@'${IMAGE_PATH}${IMAGE_NAME}' operation==rotate param==45
+	@echo "${Yellow}======== END ========${NC}"
+
+upload_flip:
+	@echo "${Yellow}======== TEST UPLOAD ========${NC}"
+	http -f POST ${LOCAL_SERVER_ADDRESS}/file bucket=${BUCKET_TITLE} file@'${IMAGE_PATH}${IMAGE_NAME}' operation==flip
+	@echo "${Yellow}======== END ========${NC}"
+
+upload_negate:
+	@echo "${Yellow}======== TEST UPLOAD ========${NC}"
+	http -f POST ${LOCAL_SERVER_ADDRESS}/file bucket=${BUCKET_TITLE} file@'${IMAGE_PATH}${IMAGE_NAME}' operation==negate
+	@echo "${Yellow}======== END ========${NC}"
+
+upload_normalize:
+	@echo "${Yellow}======== TEST UPLOAD ========${NC}"
+	http -f POST ${LOCAL_SERVER_ADDRESS}/file bucket=${BUCKET_TITLE} file@'${IMAGE_PATH}${IMAGE_NAME}' operation==normalize
+	@echo "${Yellow}======== END ========${NC}"
+
+delete:
+	@echo "${Yellow}======== TEST DELETE ========${NC}"
+	http -f DELETE ${LOCAL_SERVER_ADDRESS}/file/${BUCKET_TITLE}/${IMAGE}
+	@echo "${Yellow}======== END ========${NC}"
+
+help:
+	@echo
+	@echo make upload
+	@echo make upload_nested
+	@echo make upload_resize
+	@echo make upload_convert
+	@echo make download IMAGE=d9cd6c1c-55c6-4dbf-aaea-f7acc1ceb76c.png
+	@echo make delete IMAGE=d9cd6c1c-55c6-4dbf-aaea-f7acc1ceb76c.png
+	@echo make stat_bucket BUCKET=blk
+	@echo make stat_bucket_exclude BUCKET=blk EXCLUDE_PATH=app
+	@echo
